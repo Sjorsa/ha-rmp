@@ -1,0 +1,16 @@
+{
+  "domain": "raphson_media_player",
+  "name": "Raphson Media Player",
+  "codeowners": [
+    "@Sjorsa"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Sjorsa/ha-rmp",
+  "homekit": {},
+  "iot_class": "local_polling",
+  "requirements": [],
+  "ssdp": [],
+  "zeroconf": [],
+  "version": "0.1.0"
+}
