@@ -150,8 +150,9 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         else:
             self._attr_volume_level = 0
 
-        # Hier misschien nog meer
-        if state["player"]["is_playing"]:
+        if not state["player"]["has_media"]:
+            self._attr_state = MediaPlayerState.IDLE
+        elif state["player"]["is_playing"]:
             self._attr_state = MediaPlayerState.PLAYING
         else:
             self._attr_state = MediaPlayerState.PAUSED
