@@ -47,7 +47,6 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             MediaPlayerEntityFeature.NEXT_TRACK | \
             MediaPlayerEntityFeature.STOP | \
             MediaPlayerEntityFeature.PLAY
-        self._attr_available = True
 
         self._url = f"http://{host}:{port}"
 
@@ -99,12 +98,6 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     #     self.speaker.volume_up()
 
     # @property
-    # def available(self) -> bool:
-    #     """Return True if entity is available."""
-    #     # return self.speaker.is_available
-    #     return True
-
-    # @property
     # def device_info(self) -> dict[str, Any]:
     #     """Return device information about this entity."""
     #     return {
@@ -142,9 +135,11 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         try:
             response = requests.get(f"{self._url}/state", timeout=5)
             response.raise_for_status()
+            self._attr_available = True
         except:
             traceback.print_exc()
             _LOGGER.error(f"{self.entity_id} is unavailable")
+            self._attr_available = False
             return
 
         state = response.json()
