@@ -43,7 +43,8 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             MediaPlayerEntityFeature.SEEK | \
             MediaPlayerEntityFeature.NEXT_TRACK | \
             MediaPlayerEntityFeature.STOP | \
-            MediaPlayerEntityFeature.PLAY
+            MediaPlayerEntityFeature.PLAY | \
+            MediaPlayerEntityFeature.VOLUME_SET
 
         self._url = f"http://{host}:{port}"
         self._attr_name = 'Raphson Playback Server'
@@ -87,14 +88,6 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     #     """Set volume level, range 0..1."""
     #     self.speaker.set_volume(int(volume * 100))
 
-    # def volume_down(self) -> None:
-    #     """Turn volume down for media player."""
-    #     self.speaker.volume_down()
-
-    # def volume_up(self) -> None:
-    #     """Turn volume up for media player."""
-    #     self.speaker.volume_up()
-
     # @property
     # def device_info(self) -> dict[str, Any]:
     #     """Return device information about this entity."""
@@ -106,7 +99,6 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     #         # "sw_version": self.speaker.software_version,
     #     }
 
-
     # @property
     # def repeat(self) -> RepeatMode | str | None:
     #     """Return current repeat mode."""
@@ -116,17 +108,13 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     #         return self.speaker.repeat
 
     # @property
-    # def supported_features(self) -> MediaPlayerEntityFeature:
-    #     """Flag media player features that are supported."""
-    #     if self.speaker is None:
-    #         return None
-    #     else:
-    #         return self.speaker.features
-
-    # @property
     # def unique_id(self) -> str:
     #     """Return the unique id for the entity."""
     #     return self.device_uuid
+
+    def set_volume_level(self, volume: float) -> None:
+        response = requests.post(f'{self._url}/volume', data=str(int(volume * 100)), timeout=5)
+        response.raise_for_status()
 
     def update(self) -> None:
         """Get the latest data and update the state."""
