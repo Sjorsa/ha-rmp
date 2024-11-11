@@ -145,6 +145,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         except:
             traceback.print_exc()
             _LOGGER.error(f"{self.entity_id} is unavailable")
+            return
 
         state = response.json()
         self._attr_media_position = state["player"]["position"]
