@@ -13,6 +13,7 @@ from homeassistant.components.media_player import (
     MediaType,
 )
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 import requests
@@ -20,19 +21,15 @@ import requests
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-def setup_platform(
-    hass: HomeAssistant,
-    config: ConfigType,
-    add_entities: AddEntitiesCallback,
-    discovery_info: DiscoveryInfoType | None = None,
-) -> None:
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback,) -> None:
     """Set up the rmp platform."""
-    add_entities([RMPMediaPlayerEntity(host="10.0.0.126", port="8181")])
+    async_add_entities([RMPMediaPlayerEntity(host=entry.data['host'], port=entry.data['port'])])
+
 
 class RMPMediaPlayerEntity(MediaPlayerEntity):
     """Representation of the Mopidy server."""
 
-    _attr_name = None
     _attr_media_content_type = MediaType.MUSIC
     _attr_device_class = MediaPlayerDeviceClass.SPEAKER
 
@@ -49,6 +46,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             MediaPlayerEntityFeature.PLAY
 
         self._url = f"http://{host}:{port}"
+        self._attr_name = 'Raphson Playback Server'
 
     def clear_playlist(self) -> None:
         """Clear players playlist."""
@@ -137,7 +135,6 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             response.raise_for_status()
             self._attr_available = True
         except:
-            traceback.print_exc()
             _LOGGER.error(f"{self.entity_id} is unavailable")
             self._attr_available = False
             return
