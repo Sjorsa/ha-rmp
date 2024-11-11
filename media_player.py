@@ -212,7 +212,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                                         can_play=True,
                                         can_expand=False)
                             for track in tracks]
-                return BrowseMedia(media_class=MediaClass.PLAYLIST, media_content_type=MediaType.PLAYLIST, media_content_id=media_content_id, children=children, title="Playlists", can_play=False, can_expand=False)
+                return BrowseMedia(media_class=MediaClass.PLAYLIST, media_content_type=MediaType.PLAYLIST, media_content_id=media_content_id, children=children, title=media_content_id, can_play=False, can_expand=False)
 
             raise ValueError(media_content_type, media_content_id)
 
