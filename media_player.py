@@ -1,6 +1,8 @@
 from __future__ import annotations
+import asyncio
+import re
 import traceback
-from typing import Any
+from typing import Any, override
 import datetime as dt
 from urllib.parse import quote
 
@@ -13,6 +15,8 @@ from homeassistant.components.media_player import (
     MediaType,
 )
 
+from homeassistant.components.media_player.browse_media import BrowseMedia
+from homeassistant.components.media_player.const import MediaClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
@@ -44,6 +48,8 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             MediaPlayerEntityFeature.NEXT_TRACK | \
             MediaPlayerEntityFeature.STOP | \
             MediaPlayerEntityFeature.PLAY | \
+            MediaPlayerEntityFeature.BROWSE_MEDIA | \
+            MediaPlayerEntityFeature.PLAY_MEDIA | \
             MediaPlayerEntityFeature.VOLUME_SET
 
         self._url = f"http://{host}:{port}"
@@ -160,3 +166,47 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             self._attr_media_album_artist = None
             self._attr_media_artist = None
             self._attr_media_image_url = None
+
+    async def async_browse_media(
+            self,
+            media_content_type: MediaType | str | None = None,
+            media_content_id: str | None = None,
+        ) -> BrowseMedia:
+            if media_content_type == None or media_content_type == MediaType.APP:
+                def retrieve_playlists() -> list[str]:
+                    response = requests.get(f'{self._url}/state', timeout=5)
+                    response.raise_for_status()
+                    return response.json()['playlists']['all']
+                playlists = await asyncio.get_running_loop().run_in_executor(None, retrieve_playlists)
+                children = [BrowseMedia(media_class=MediaClass.PLAYLIST,
+                                        media_content_id=playlist,
+                                        media_content_type=MediaType.PLAYLIST,
+                                        title=playlist,
+                                        can_play=False,
+                                        can_expand=True)
+                            for playlist in playlists]
+                return BrowseMedia(media_class=MediaClass.APP, media_content_type=MediaType.APP, media_content_id="root", children=children, title="Playlists", can_play=False, can_expand=False)
+
+            if media_content_type == MediaType.PLAYLIST and media_content_id is not None:
+                def retrieve_tracks() -> list[str]:
+                    response = requests.get(f'{self._url}/list_tracks', params={'playlist': media_content_id}, timeout=5)
+                    response.raise_for_status()
+                    return response.json()['tracks']
+                tracks = await asyncio.get_running_loop().run_in_executor(None, retrieve_tracks)
+                children = [BrowseMedia(media_class=MediaClass.TRACK,
+                                        media_content_id=track['path'],
+                                        media_content_type=MediaType.TRACK,
+                                        title=track['display'],
+                                        can_play=True,
+                                        can_expand=False)
+                            for track in tracks]
+                return BrowseMedia(media_class=MediaClass.PLAYLIST, media_content_type=MediaType.PLAYLIST, media_content_id=media_content_id, children=children, title=media_content_id, can_play=False, can_expand=False)
+
+            raise ValueError(media_content_type, media_content_id)
+
+    @override
+    def play_media(self, media_type: MediaType | str, media_id: str, **kwargs) -> None:
+        assert media_type == MediaType.TRACK
+        # this request has a longer timeout, it may take a while to download a track
+        response = requests.post(f'{self._url}/play_track', data=media_id, timeout=30)
+        response.raise_for_status()
