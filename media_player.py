@@ -37,6 +37,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     _attr_consume_mode: bool | None = None
     _url: str
     _playlists: list[str]
+    _enabled_playlists: list[str]
 
     def __init__(self, host, port) -> None:
         """Initialize the rmp device."""
@@ -54,6 +55,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         self._attr_name = 'Raphson Playback Server'
         self._attr_unique_id = self._url
         self._playlists = []
+        self._enabled_playlists = []
 
     @override
     def media_next_track(self) -> None:
@@ -104,6 +106,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         state = response.json()
 
         self._playlists = state['playlists']['all']
+        self._enabled_playlists = state['playlists']['enabled']
 
         self._attr_media_position = state["player"]["position"]
         self._attr_media_position_updated_at = dt.datetime.now()
@@ -151,8 +154,8 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                 children = [BrowseMedia(media_class=MediaClass.PLAYLIST,
                                         media_content_id=playlist,
                                         media_content_type=MediaType.PLAYLIST,
-                                        title=playlist,
-                                        can_play=False,
+                                        title=playlist + ('✓' if playlist in self._enabled_playlists else ''),
+                                        can_play=True,
                                         can_expand=True)
                             for playlist in self._playlists]
                 return BrowseMedia(media_class=MediaClass.APP, media_content_type=MediaType.APP, media_content_id="root", children=children, title="Playlists", can_play=False, can_expand=False)
@@ -176,7 +179,25 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
 
     @override
     def play_media(self, media_type: MediaType | str, media_id: str, **kwargs) -> None:
-        assert media_type == MediaType.TRACK
-        # this request has a longer timeout, it may take a while to download a track
-        response = requests.post(f'{self._url}/play_track', data=media_id.encode(), timeout=30)
-        response.raise_for_status()
+        # Play track
+        if media_type == MediaType.TRACK:
+            # This request has a longer timeout, it may take a while to download a track
+            response = requests.post(f'{self._url}/play_track', data=media_id.encode(), timeout=30)
+            response.raise_for_status()
+            return
+
+        # Toggle playlist
+        if media_type == MediaType.PLAYLIST:
+            new_playlists = list(self._enabled_playlists)
+            if media_id in self._enabled_playlists:
+                # If playlist was enabled, disable it
+                new_playlists.remove(media_id)
+            else:
+                # Otherwise, enable it
+                new_playlists.append(media_id)
+
+            response = requests.post(f'{self._url}/playlists', json=new_playlists, timeout=5)
+            response.raise_for_status()
+            return
+
+        raise ValueError(media_type)
