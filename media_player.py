@@ -1,29 +1,26 @@
 from __future__ import annotations
 import asyncio
-import re
-import traceback
-from typing import Any, override
+from typing import override
 import datetime as dt
 from urllib.parse import quote
+import logging
 
 from homeassistant.components.media_player import (
-    _LOGGER,
     MediaPlayerDeviceClass,
-    MediaPlayerEntity,
-    MediaPlayerEntityFeature,
-    MediaPlayerState,
-    MediaType,
+    MediaPlayerEntity
 )
 
 from homeassistant.components.media_player.browse_media import BrowseMedia
-from homeassistant.components.media_player.const import MediaClass
+from homeassistant.components.media_player.const import MediaClass, MediaPlayerEntityFeature, MediaPlayerState, MediaType
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 import requests
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback,) -> None:
@@ -54,70 +51,39 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
 
         self._url = f"http://{host}:{port}"
         self._attr_name = 'Raphson Playback Server'
+        self._attr_unique_id = self._url
 
-    def clear_playlist(self) -> None:
-        """Clear players playlist."""
-        # self.speaker.clear_queue()
-
+    @override
     def media_next_track(self) -> None:
         """Send next track command."""
         requests.post(f"{self._url}/next", timeout=5).raise_for_status()
 
+    @override
     def media_pause(self) -> None:
         """Send pause command."""
         requests.post(f"{self._url}/pause", timeout=5).raise_for_status()
 
+    @override
     def media_play(self) -> None:
         """Send play command."""
         requests.post(f"{self._url}/play", timeout=5).raise_for_status()
 
-    # def media_previous_track(self) -> None:
-    #     """Send previous track command."""
+    def media_previous_track(self) -> None:
+        """Send previous track command."""
+        # TODO
+        raise NotImplementedError()
 
+    @override
     def media_seek(self, position) -> None:
         """Send seek command."""
         requests.post(f"{self._url}/seek", timeout=5, data=str(int(position)).encode()).raise_for_status()
 
+    @override
     def media_stop(self) -> None:
         """Send stop command."""
         requests.post(f"{self._url}/stop", timeout=5).raise_for_status()
 
-    # def set_repeat(self, repeat) -> None:
-    #     """Set repeat mode."""
-    #     self.speaker.set_repeat_mode(repeat)
-
-    # def set_shuffle(self, shuffle) -> None:
-    #     """Enable/disable shuffle mode."""
-    #     self.speaker.set_shuffle(shuffle)
-
-    # def set_volume_level(self, volume) -> None:
-    #     """Set volume level, range 0..1."""
-    #     self.speaker.set_volume(int(volume * 100))
-
-    # @property
-    # def device_info(self) -> dict[str, Any]:
-    #     """Return device information about this entity."""
-    #     return {
-    #         # "identifiers": {(DOMAIN, self.device_name)},
-    #         "manufacturer": "Raphson",
-    #         # "model": "RMP server",
-    #         # "name": self.device_name,
-    #         # "sw_version": self.speaker.software_version,
-    #     }
-
-    # @property
-    # def repeat(self) -> RepeatMode | str | None:
-    #     """Return current repeat mode."""
-    #     if self.speaker is None:
-    #         return None
-    #     else:
-    #         return self.speaker.repeat
-
-    # @property
-    # def unique_id(self) -> str:
-    #     """Return the unique id for the entity."""
-    #     return self.device_uuid
-
+    @override
     def set_volume_level(self, volume: float) -> None:
         response = requests.post(f'{self._url}/volume', data=str(int(volume * 100)), timeout=5)
         response.raise_for_status()
@@ -138,7 +104,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         self._attr_media_position_updated_at = dt.datetime.now()
         self._attr_media_duration = state["player"]["duration"]
 
-        volume_level = state["player"]["volume"]/100
+        volume_level = state["player"]["volume"] / 100
         if volume_level >= 0:
             self._attr_volume_level = volume_level
         else:
@@ -168,6 +134,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             self._attr_media_artist = None
             self._attr_media_image_url = None
 
+    @override
     async def async_browse_media(
             self,
             media_content_type: MediaType | str | None = None,
