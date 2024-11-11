@@ -95,9 +95,12 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         try:
             response = requests.get(f"{self._url}/state", timeout=5)
             response.raise_for_status()
+            if not self._attr_available:
+                _LOGGER.info(f"{self.entity_id} is available")
             self._attr_available = True
         except:
-            _LOGGER.error(f"{self.entity_id} is unavailable")
+            if self._attr_available:
+                _LOGGER.warn(f"{self.entity_id} is unavailable")
             self._attr_available = False
             return
 
