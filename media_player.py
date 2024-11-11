@@ -176,5 +176,5 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     def play_media(self, media_type: MediaType | str, media_id: str, **kwargs) -> None:
         assert media_type == MediaType.TRACK
         # this request has a longer timeout, it may take a while to download a track
-        response = requests.post(f'{self._url}/play_track', data=media_id, timeout=30)
+        response = requests.post(f'{self._url}/play_track', data=media_id.encode(), timeout=30)
         response.raise_for_status()
