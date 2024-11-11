@@ -171,7 +171,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             self._attr_media_album_artist = state["currently_playing"]["album_artist"]
             self._attr_media_artist = ', '.join(state["currently_playing"]["artists"])
 
-            self._attr_media_image_url = f"{self._url}/image#{quote(state["currently_playing"]["path"])}
+            self._attr_media_image_url = f"{self._url}/image#{quote(state["currently_playing"]["path"])}"
         else:
             self._attr_media_content_id = None
             self._attr_media_title = None
