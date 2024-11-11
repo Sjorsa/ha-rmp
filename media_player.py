@@ -130,13 +130,14 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
 
 
         if state["currently_playing"]:
-            self._attr_media_content_id = state["currently_playing"]["path"]
+            path: str = state["currently_playing"]["path"]
+            self._attr_media_content_id = path
             self._attr_media_content_type = MediaType.TRACK
             self._attr_media_title = state["currently_playing"]["title"]
             self._attr_media_album_name = state["currently_playing"]["album"]
             self._attr_media_album_artist = state["currently_playing"]["album_artist"]
             self._attr_media_artist = ', '.join(state["currently_playing"]["artists"])
-
+            self._attr_media_playlist = path[:path.index('/')]
             self._attr_media_image_url = f"{self._url}/image#{quote(state["currently_playing"]["path"])}"
         else:
             self._attr_media_content_id = None
@@ -145,6 +146,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             self._attr_media_album_name = None
             self._attr_media_album_artist = None
             self._attr_media_artist = None
+            self._attr_media_playlist = None
             self._attr_media_image_url = None
 
     @override
