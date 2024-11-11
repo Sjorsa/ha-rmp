@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import re
 import traceback
-from typing import Any
+from typing import Any, override
 import datetime as dt
 from urllib.parse import quote
 
@@ -48,7 +48,8 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             MediaPlayerEntityFeature.NEXT_TRACK | \
             MediaPlayerEntityFeature.STOP | \
             MediaPlayerEntityFeature.PLAY | \
-            MediaPlayerEntityFeature.BROWSE_MEDIA
+            MediaPlayerEntityFeature.BROWSE_MEDIA | \
+            MediaPlayerEntityFeature.PLAY_MEDIA
 
         self._url = f"http://{host}:{port}"
         self._attr_name = 'Raphson Playback Server'
@@ -214,3 +215,10 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                 return BrowseMedia(media_class=MediaClass.PLAYLIST, media_content_type=MediaType.PLAYLIST, media_content_id=media_content_id, children=children, title="Playlists", can_play=False, can_expand=False)
 
             raise ValueError(media_content_type, media_content_id)
+
+    @override
+    def play_media(self, media_type: MediaType | str, media_id: str, **kwargs) -> None:
+        assert media_type == MediaType.TRACK
+        # this request has a longer timeout, it may take a while to download a track
+        response = requests.post(f'{self._url}/play_track', data=media_id, timeout=30)
+        response.raise_for_status()
