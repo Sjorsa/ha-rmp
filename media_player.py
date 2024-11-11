@@ -36,6 +36,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
 
     _attr_consume_mode: bool | None = None
     _url: str
+    _playlists: list[str]
 
     def __init__(self, host, port) -> None:
         """Initialize the rmp device."""
@@ -52,6 +53,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         self._url = f"http://{host}:{port}"
         self._attr_name = 'Raphson Playback Server'
         self._attr_unique_id = self._url
+        self._playlists = []
 
     @override
     def media_next_track(self) -> None:
@@ -100,6 +102,9 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             return
 
         state = response.json()
+
+        self._playlists = state['playlists']['all']
+
         self._attr_media_position = state["player"]["position"]
         self._attr_media_position_updated_at = dt.datetime.now()
         self._attr_media_duration = state["player"]["duration"]
@@ -141,18 +146,13 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             media_content_id: str | None = None,
         ) -> BrowseMedia:
             if media_content_type == None or media_content_type == MediaType.APP:
-                def retrieve_playlists() -> list[str]:
-                    response = requests.get(f'{self._url}/state', timeout=5)
-                    response.raise_for_status()
-                    return response.json()['playlists']['all']
-                playlists = await asyncio.get_running_loop().run_in_executor(None, retrieve_playlists)
                 children = [BrowseMedia(media_class=MediaClass.PLAYLIST,
                                         media_content_id=playlist,
                                         media_content_type=MediaType.PLAYLIST,
                                         title=playlist,
                                         can_play=False,
                                         can_expand=True)
-                            for playlist in playlists]
+                            for playlist in self._playlists]
                 return BrowseMedia(media_class=MediaClass.APP, media_content_type=MediaType.APP, media_content_id="root", children=children, title="Playlists", can_play=False, can_expand=False)
 
             if media_content_type == MediaType.PLAYLIST and media_content_id is not None:
