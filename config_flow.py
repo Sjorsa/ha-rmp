@@ -1,7 +1,11 @@
 from typing import Any
-from homeassistant import config_entries
-from . import DOMAIN
+
 import voluptuous as vol
+
+from homeassistant import config_entries
+
+from . import DOMAIN
+
 
 class RaphsonPlaybackServerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Example config flow."""
