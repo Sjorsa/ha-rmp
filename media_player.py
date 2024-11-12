@@ -1,31 +1,30 @@
 from __future__ import annotations
-import asyncio
-from typing import override
+
 import datetime as dt
-from urllib.parse import quote
 import logging
+from typing import cast, override
+from urllib.parse import quote
 
-from homeassistant.components.media_player import (
-    MediaPlayerDeviceClass,
-    MediaPlayerEntity
-)
+from aiohttp import ClientSession
 
+from homeassistant.components.media_player import (MediaPlayerDeviceClass,
+                                                   MediaPlayerEntity)
 from homeassistant.components.media_player.browse_media import BrowseMedia
-from homeassistant.components.media_player.const import MediaClass, MediaPlayerEntityFeature, MediaPlayerState, MediaType
+from homeassistant.components.media_player.const import (
+    MediaClass, MediaPlayerEntityFeature, MediaPlayerState, MediaType)
 from homeassistant.config_entries import ConfigEntry
-
-import requests
-
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-
 
 _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback,) -> None:
     """Set up the rmp platform."""
-    async_add_entities([RMPMediaPlayerEntity(host=entry.data['host'], port=entry.data['port'])])
+    base_url = f"http://{entry.data['host']}:{entry.data['port']}"
+    session = aiohttp_client.async_create_clientsession(hass, base_url=base_url)
+    async_add_entities([RMPMediaPlayerEntity(session, base_url)])
 
 
 class RMPMediaPlayerEntity(MediaPlayerEntity):
@@ -35,11 +34,12 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     _attr_device_class = MediaPlayerDeviceClass.SPEAKER
 
     _attr_consume_mode: bool | None = None
-    _url: str
+    _base_url: str
+    _session: ClientSession
     _playlists: list[str]
     _enabled_playlists: list[str]
 
-    def __init__(self, host, port) -> None:
+    def __init__(self, session: ClientSession, base_url: str) -> None:
         """Initialize the rmp device."""
         self._attr_supported_features = \
             MediaPlayerEntityFeature.PAUSE | \
@@ -51,51 +51,58 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             MediaPlayerEntityFeature.PLAY_MEDIA | \
             MediaPlayerEntityFeature.VOLUME_SET
 
-        self._url = f"http://{host}:{port}"
+        self._base_url = base_url
+        self._session = session
+        self._attr_unique_id = base_url
         self._attr_name = 'Raphson Playback Server'
-        self._attr_unique_id = self._url
         self._playlists = []
         self._enabled_playlists = []
 
     @override
-    def media_next_track(self) -> None:
+    async def async_media_next_track(self) -> None:
         """Send next track command."""
-        requests.post(f"{self._url}/next", timeout=5).raise_for_status()
+        response = await self._session.post('/next')
+        response.raise_for_status()
 
     @override
-    def media_pause(self) -> None:
+    async def async_media_pause(self) -> None:
         """Send pause command."""
-        requests.post(f"{self._url}/pause", timeout=5).raise_for_status()
+        response = await self._session.post('/pause')
+        response.raise_for_status()
 
     @override
-    def media_play(self) -> None:
+    async def async_media_play(self) -> None:
         """Send play command."""
-        requests.post(f"{self._url}/play", timeout=5).raise_for_status()
+        response = await self._session.post('/play')
+        response.raise_for_status()
 
-    def media_previous_track(self) -> None:
+    @override
+    async def async_media_previous_track(self) -> None:
         """Send previous track command."""
         # TODO
         raise NotImplementedError()
 
     @override
-    def media_seek(self, position) -> None:
+    async def async_media_seek(self, position: float) -> None:
         """Send seek command."""
-        requests.post(f"{self._url}/seek", timeout=5, data=str(int(position)).encode()).raise_for_status()
-
-    @override
-    def media_stop(self) -> None:
-        """Send stop command."""
-        requests.post(f"{self._url}/stop", timeout=5).raise_for_status()
-
-    @override
-    def set_volume_level(self, volume: float) -> None:
-        response = requests.post(f'{self._url}/volume', data=str(int(volume * 100)), timeout=5)
+        response = await self._session.post('/seek', data=str(int(position)).encode())
         response.raise_for_status()
 
-    def update(self) -> None:
+    @override
+    async def async_media_stop(self) -> None:
+        """Send stop command."""
+        response = await self._session.post('/stop')
+        response.raise_for_status()
+
+    @override
+    async def async_set_volume_level(self, volume: float) -> None:
+        response = await self._session.post('/volume', data=str(int(volume * 100)).encode())
+        response.raise_for_status()
+
+    async def async_update(self) -> None:
         """Get the latest data and update the state."""
         try:
-            response = requests.get(f"{self._url}/state", timeout=5)
+            response = await self._session.get(f"/state")
             response.raise_for_status()
             if not self._attr_available:
                 _LOGGER.info(f"{self.entity_id} is available")
@@ -106,7 +113,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             self._attr_available = False
             return
 
-        state = response.json()
+        state = await response.json()
 
         self._playlists = state['playlists']['all']
         self._enabled_playlists = state['playlists']['enabled']
@@ -128,7 +135,6 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         else:
             self._attr_state = MediaPlayerState.PAUSED
 
-
         if state["currently_playing"]:
             path: str = state["currently_playing"]["path"]
             self._attr_media_content_id = path
@@ -136,9 +142,9 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             self._attr_media_title = state["currently_playing"]["title"]
             self._attr_media_album_name = state["currently_playing"]["album"]
             self._attr_media_album_artist = state["currently_playing"]["album_artist"]
-            self._attr_media_artist = ', '.join(state["currently_playing"]["artists"])
+            self._attr_media_artist = ', '.join(cast(list[str], state["currently_playing"]["artists"]))
             self._attr_media_playlist = path[:path.index('/')]
-            self._attr_media_image_url = f"{self._url}/image#{quote(state["currently_playing"]["path"])}"
+            self._attr_media_image_url = f"{self._base_url}/image#{quote(state["currently_playing"]["path"])}"
         else:
             self._attr_media_content_id = None
             self._attr_media_content_type = None
@@ -166,11 +172,9 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                 return BrowseMedia(media_class=MediaClass.APP, media_content_type=MediaType.APP, media_content_id="root", children=children, title="Playlists", can_play=False, can_expand=False)
 
             if media_content_type == MediaType.PLAYLIST and media_content_id is not None:
-                def retrieve_tracks() -> list[str]:
-                    response = requests.get(f'{self._url}/list_tracks', params={'playlist': media_content_id}, timeout=5)
-                    response.raise_for_status()
-                    return response.json()['tracks']
-                tracks = await asyncio.get_running_loop().run_in_executor(None, retrieve_tracks)
+                response = await self._session.get(f'/list_tracks', params={'playlist': media_content_id})
+                response.raise_for_status()
+                tracks = (await response.json())['tracks']
                 children = [BrowseMedia(media_class=MediaClass.TRACK,
                                         media_content_id=track['path'],
                                         media_content_type=MediaType.TRACK,
@@ -183,11 +187,10 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
             raise ValueError(media_content_type, media_content_id)
 
     @override
-    def play_media(self, media_type: MediaType | str, media_id: str, **kwargs) -> None:
+    async def async_play_media(self, media_type: MediaType | str, media_id: str, **kwargs) -> None:
         # Play track
         if media_type == MediaType.TRACK:
-            # This request has a longer timeout, it may take a while to download a track
-            response = requests.post(f'{self._url}/play_track', data=media_id.encode(), timeout=30)
+            response = await self._session.post(f'/play_track', data=media_id.encode())
             response.raise_for_status()
             return
 
@@ -201,7 +204,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                 # Otherwise, enable it
                 new_playlists.append(media_id)
 
-            response = requests.post(f'{self._url}/playlists', json=new_playlists, timeout=5)
+            response = await self._session.post(f'/playlists', json=new_playlists)
             response.raise_for_status()
             return
 
