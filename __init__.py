@@ -32,7 +32,6 @@ async def async_migrate_entry(hass, config_entry: ConfigEntry):
 
         new_data = {**config_entry.data}
         if config_entry.minor_version < 2:
-            # TODO: modify Config Entry data with changes in version 1.2
             new_data['name'] = "Raphson Playback Server"
         else:
             raise ValueError(config_entry)
