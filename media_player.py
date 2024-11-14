@@ -23,8 +23,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback,) -> None:
     """Set up the rmp platform."""
     base_url = f"http://{entry.data['host']}:{entry.data['port']}"
+    name = entry.data['name']
     session = aiohttp_client.async_create_clientsession(hass, base_url=base_url)
-    async_add_entities([RMPMediaPlayerEntity(session, base_url)])
+    async_add_entities([RMPMediaPlayerEntity(session, base_url, name)])
 
 
 class RMPMediaPlayerEntity(MediaPlayerEntity):
@@ -39,7 +40,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
     _playlists: list[str]
     _enabled_playlists: list[str]
 
-    def __init__(self, session: ClientSession, base_url: str) -> None:
+    def __init__(self, session: ClientSession, base_url: str, name: str) -> None:
         """Initialize the rmp device."""
         self._attr_supported_features = \
             MediaPlayerEntityFeature.PAUSE | \
@@ -54,7 +55,7 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
         self._base_url = base_url
         self._session = session
         self._attr_unique_id = base_url
-        self._attr_name = 'Raphson Playback Server'
+        self._attr_name = name
         self._playlists = []
         self._enabled_playlists = []
 
