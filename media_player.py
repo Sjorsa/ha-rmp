@@ -169,6 +169,15 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                                         can_play=True,
                                         can_expand=True)
                             for playlist in self._playlists]
+
+                # News
+                children.append(BrowseMedia(media_class=MediaClass.PODCAST,
+                                        media_content_id="news",
+                                        media_content_type=MediaType.PODCAST,
+                                        title="News",
+                                        can_play=True,
+                                        can_expand=False))
+
                 return BrowseMedia(media_class=MediaClass.APP, media_content_type=MediaType.APP, media_content_id="root", children=children, title="Playlists", can_play=False, can_expand=False)
 
             if media_content_type == MediaType.PLAYLIST and media_content_id is not None:
@@ -205,6 +214,11 @@ class RMPMediaPlayerEntity(MediaPlayerEntity):
                 new_playlists.append(media_id)
 
             response = await self._session.post(f'/playlists', json=new_playlists)
+            response.raise_for_status()
+            return
+
+        if media_type == MediaType.PODCAST and media_id == "news":
+            response = await self._session.post(f'/play_news', data=media_id.encode())
             response.raise_for_status()
             return
 
